@@ -1,0 +1,79 @@
+version: '2'
+
+services:
+  # Node Exporter (Métricas do Sistema)
+  node-exporter-local:
+    image: quay.io/prometheus/node-exporter
+    stdin_open: true
+    volumes:
+      - /:/host:ro,rslave
+    tty: true
+    ports:
+      - 9100:9100/tcp
+    restart: always
+    command:
+      - --path.rootfs=/host
+
+  # Prometheus (Coleta de Métricas)
+  prometheus:
+    image: prom/prometheus
+    stdin_open: true
+    volumes:
+      - /var/www/prometheus:/etc/prometheus
+    tty: true
+    ports:
+      - 9090:9090/tcp
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    depends_on:
+      - loki
+
+  # Grafana Image Renderer
+  renderer:
+    image: grafana/grafana-image-renderer:3.5.0
+    ports:
+      - 3001:8081/tcp
+    restart: always
+
+  # Grafana (Visualização)
+  grafana:
+    image: grafana/grafana:7.5.7
+    environment:
+      GF_LOG_FILTERS: rendering:debug
+      GF_RENDERING_CALLBACK_URL: http://renderer:3000/
+      GF_RENDERING_SERVER_URL: http://renderer:3001/render
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-image-renderer,grafana-loki-datasource
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SERVER_HTTP_PORT: '3000'
+      GF_SERVER_PROTOCOL: http
+    volumes:
+      - /var/www/grafana:/var/lib/grafana
+      - ./loki-datasource.yml:/etc/grafana/provisioning/datasources/loki.yml
+    ports:
+      - 3000:3000/tcp
+    restart: always
+    depends_on:
+      - loki
+
+  # Loki (Agregação de Logs)
+  loki:
+    image: grafana/loki:2.8.0
+    ports:
+      - 3100:3100
+    volumes:
+      - /var/www/loki:/etc/loki
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+    restart: always
+
+  # Promtail (Coletor de Logs para Loki)
+  promtail:
+    image: grafana/promtail:2.8.0
+    volumes:
+      - /var/log:/var/log
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command:
+      - -config.file=/etc/promtail/config.yml
+    restart: always
