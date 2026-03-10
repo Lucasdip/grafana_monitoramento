@@ -1,5 +1,7 @@
 # 🚀 Agility Atendimento API
 
+API de atendimento para gestão de protocolos e suporte ao cliente.
+
 ---
 
 ## 🏗️ Arquitetura do Sistema
